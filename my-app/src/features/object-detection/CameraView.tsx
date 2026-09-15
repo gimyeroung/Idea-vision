@@ -1,23 +1,36 @@
-// 담당: ML Kit — 카메라 미리보기 화면과 촬영 버튼.
-// 촬영이 끝나면 onCapture로 사진 정보(uri, width, height)를 상위로 전달한다.
+// 담당: ML Kit — 카메라 미리보기. 계속 켜져있고, 상위(ObjectDetectionScreen)가 ref로
+// capture()를 호출해서 주기적으로 프레임을 가져간다. children은 미리보기 위에 겹쳐서 그려진다
+// (사각형 오버레이용).
 
 import { CameraView as ExpoCameraView, useCameraPermissions } from 'expo-camera';
-import { useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-type CapturedPhoto = {
+export type CapturedPhoto = {
   uri: string;
   width: number;
   height: number;
 };
 
-type Props = {
-  onCapture: (photo: CapturedPhoto) => void;
+export type CameraViewHandle = {
+  capture: () => Promise<CapturedPhoto | undefined>;
 };
 
-export function CameraView({ onCapture }: Props) {
+type Props = {
+  children?: ReactNode;
+};
+
+export const CameraView = forwardRef<CameraViewHandle, Props>(function CameraView({ children }, ref) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<ExpoCameraView>(null);
+
+  useImperativeHandle(ref, () => ({
+    capture: async () => {
+      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.5 });
+      if (!photo) return undefined;
+      return { uri: photo.uri, width: photo.width, height: photo.height };
+    },
+  }));
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -34,33 +47,26 @@ export function CameraView({ onCapture }: Props) {
     );
   }
 
-  const handleCapture = async () => {
-    const photo = await cameraRef.current?.takePictureAsync();
-    if (photo) {
-      onCapture({ uri: photo.uri, width: photo.width, height: photo.height });
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <ExpoCameraView ref={cameraRef} style={styles.camera} facing="back" />
-      <View style={styles.controls}>
-        <Pressable style={styles.captureButton} onPress={handleCapture} />
-      </View>
+      <ExpoCameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        animateShutter={false}
+      />
+      {children}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-  },
-  camera: {
-    flex: 1,
-    width: '100%',
   },
   message: {
     textAlign: 'center',
@@ -74,19 +80,5 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#ffffff',
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 32,
-    width: '100%',
-    alignItems: 'center',
-  },
-  captureButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#ffffff',
-    borderWidth: 4,
-    borderColor: '#cccccc',
   },
 });

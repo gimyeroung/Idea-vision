@@ -2,11 +2,12 @@
 
 ## 역할
 
-카메라로 사진을 찍고, ML Kit 기본 모델로 물체를 감지해 대분류(Fashion good / Food / Home good / Place / Plant / Unknown)와 사각형(바운딩 박스)을 화면에 표시한다. 사용자가 그중 하나를 탭하면 해당 객체 정보를 다음 단계(vision-analysis)로 넘긴다.
+카메라를 계속 켜둔 채로 짧은 간격(0.3초)마다 자동으로 촬영 → ML Kit 기본 모델로 물체를 감지해 대분류(Fashion good / Food / Home good / Place / Plant / Unknown)와 사각형(바운딩 박스)을 실시간처럼 화면에 표시한다. 사용자가 그중 하나를 탭하면 해당 객체 정보를 다음 단계(vision-analysis)로 넘긴다.
 
 ## 현재 구현 상태
 
-- 카메라 촬영 → ML Kit 대분류 감지 → 사진 위에 사각형 표시까지 동작함
+- 카메라를 계속 켜두고 자동으로 촬영→감지를 반복하며 사각형을 라이브로 표시 (완전한 프레임 단위 실시간은 아니고, 사진 캡처를 짧은 간격으로 반복하는 방식 — `ObjectDetectionScreen.tsx`의 `CAPTURE_INTERVAL_MS`로 간격 조절 가능)
+  - 더 부드러운 진짜 실시간(프레임 단위)이 필요하면 `react-native-vision-camera` + frame processor로 바꿔야 하는데, 이건 새 네이티브 모듈이라 EAS 재빌드가 필요함. 지금 방식은 재빌드 없이 바로 테스트 가능해서 우선 이걸로 감
 - 사각형을 탭했을 때 vision-analysis로 값을 넘기는 부분은 **아직 연결 안 됨** (`BoundingBoxOverlay`의 `onPressObject`는 있지만 `ObjectDetectionScreen`에서 아직 사용하지 않음)
 - 커스텀 `.tflite` 모델 없이 ML Kit 기본 모델만 사용 — 더 세부적인 분류는 vision-analysis(Gemini Vision) 담당의 역할
 

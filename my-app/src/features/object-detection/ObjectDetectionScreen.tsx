@@ -1,67 +1,76 @@
 // 담당: ML Kit — object-detection 기능의 조립 화면.
-// 1) 카메라로 사진을 찍는다 2) ML Kit으로 대분류 감지를 돌린다 3) 사각형을 사진 위에 그린다.
+// 카메라를 계속 켜두고, 짧은 간격으로 자동 촬영→ML Kit 대분류 감지를 반복해서
+// "실시간처럼" 보이는 사각형 오버레이를 만든다. (완전한 프레임 단위 실시간은 아님 —
+// react-native-vision-camera의 프레임 프로세서를 쓰면 가능하지만 네이티브 모듈이 추가로 필요함)
 // 사각형을 탭했을 때 다음 단계(vision-analysis)로 넘기는 부분은 아직 연결하지 않았다.
 
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { BoundingBoxOverlay } from './BoundingBoxOverlay';
-import { CameraView } from './CameraView';
+import { CameraView, type CameraViewHandle } from './CameraView';
 import { useObjectDetection } from './useObjectDetection';
 
-type CapturedPhoto = {
-  uri: string;
-  width: number;
-  height: number;
-};
+// 감지 하나가 끝난 뒤 다음 촬영까지 쉬는 시간. 너무 짧으면 카메라/ML Kit이 못 따라가고,
+// 너무 길면 실시간 느낌이 안 난다.
+const CAPTURE_INTERVAL_MS = 1200;
 
 export function ObjectDetectionScreen() {
-  const { width: screenWidth } = useWindowDimensions();
-  const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
-  const { detectedObjects, isDetecting, error, detect, reset } = useObjectDetection();
+  const cameraRef = useRef<CameraViewHandle>(null);
+  const { detectedObjects, error, detect } = useObjectDetection();
+  const [lastPhotoSize, setLastPhotoSize] = useState<{ width: number; height: number } | null>(null);
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    if (photo) {
-      detect(photo.uri);
-    }
-  }, [photo, detect]);
+    let cancelled = false;
 
-  const handleRetake = () => {
-    setPhoto(null);
-    reset();
+    async function loop() {
+      while (!cancelled) {
+        const photo = await cameraRef.current?.capture();
+        if (cancelled) return;
+        if (photo) {
+          setLastPhotoSize({ width: photo.width, height: photo.height });
+          await detect(photo.uri);
+        }
+        await new Promise((resolve) => setTimeout(resolve, CAPTURE_INTERVAL_MS));
+      }
+    }
+
+    loop();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detect]);
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setPreviewSize({ width, height });
   };
 
-  if (!photo) {
-    return <CameraView onCapture={setPhoto} />;
-  }
-
-  const displayWidth = screenWidth;
-  const displayHeight = displayWidth * (photo.height / photo.width);
-
   return (
-    <View style={styles.container}>
-      <View style={{ width: displayWidth, height: displayHeight }}>
-        <Image source={{ uri: photo.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-        <BoundingBoxOverlay
-          objects={detectedObjects}
-          imageWidth={photo.width}
-          imageHeight={photo.height}
-          displayWidth={displayWidth}
-          displayHeight={displayHeight}
-        />
-        {isDetecting && (
-          <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
-            <ActivityIndicator color="#ffffff" />
-          </View>
+    <View style={styles.container} onLayout={handleLayout}>
+      <CameraView ref={cameraRef}>
+        {lastPhotoSize && previewSize.width > 0 && previewSize.height > 0 && (
+          <BoundingBoxOverlay
+            objects={detectedObjects}
+            imageWidth={lastPhotoSize.width}
+            imageHeight={lastPhotoSize.height}
+            displayWidth={previewSize.width}
+            displayHeight={previewSize.height}
+            // 사진이 세로/가로 중 어느 쪽으로 찍혔는지가 화면 방향과 다르면, 기기가 사진의
+            // width/height를 실제 보이는 방향과 다르게 보고하고 있다는 뜻이라 회전 보정을 켠다.
+            rotate90={
+              lastPhotoSize.width > lastPhotoSize.height !== previewSize.width > previewSize.height
+            }
+          />
         )}
-      </View>
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable style={styles.retakeButton} onPress={handleRetake}>
-        <Text style={styles.retakeButtonText}>다시 찍기</Text>
-      </Pressable>
+      </CameraView>
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -69,28 +78,19 @@ export function ObjectDetectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-  },
-  loadingOverlay: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  error: {
-    color: '#d32f2f',
-    marginTop: 12,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
-  retakeButton: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
     backgroundColor: '#000000',
   },
-  retakeButtonText: {
+  errorBanner: {
+    position: 'absolute',
+    bottom: 32,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  errorText: {
     color: '#ffffff',
+    textAlign: 'center',
   },
 });
