@@ -28,17 +28,21 @@ export function useObjectDetection() {
         const results = await detector.detectObjects(imageUri);
 
         setDetectedObjects(
-          results.map((result, index) => ({
-            id: result.trackingID != null ? String(result.trackingID) : `object-${index}`,
-            label: result.labels[0]?.text ?? 'Unknown',
-            confidence: result.labels[0]?.confidence ?? 0,
-            box: {
-              x: result.frame.origin.x,
-              y: result.frame.origin.y,
-              width: result.frame.size.x,
-              height: result.frame.size.y,
-            },
-          }))
+          results
+            .map((result, index) => ({
+              id: result.trackingID != null ? String(result.trackingID) : `object-${index}`,
+              label: result.labels[0]?.text ?? 'Unknown',
+              confidence: result.labels[0]?.confidence ?? 0,
+              box: {
+                x: result.frame.origin.x,
+                y: result.frame.origin.y,
+                width: result.frame.size.x,
+                height: result.frame.size.y,
+              },
+            }))
+            // ML Kit이 물체는 찾았지만 5개 대분류 중 어디에도 확신 있게 못 넣었을 때 'Unknown'을
+            // 준다. 대분류가 안 된 거라 화면에서는 보여주지 않는다.
+            .filter((object) => object.label.toLowerCase() !== 'unknown')
         );
       } catch (e) {
         setError(e instanceof Error ? e.message : '물체 감지 중 오류가 발생했습니다.');
