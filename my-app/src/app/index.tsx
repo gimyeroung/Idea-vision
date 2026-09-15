@@ -1,12 +1,5 @@
-import { View, StyleSheet } from "react-native";
+import { ObjectDetectionScreen } from "@/features/object-detection/ObjectDetectionScreen";
 
 export default function Index() {
-  return <View style={styles.container} />;
+  return <ObjectDetectionScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-});

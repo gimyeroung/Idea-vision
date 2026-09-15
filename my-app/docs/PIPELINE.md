@@ -28,13 +28,15 @@ src/
 │   ├── index.tsx                     메인 화면 (카메라 + 세 기능 조립 지점)
 │   └── _layout.tsx                   루트 레이아웃 (헤더/화면 전환 설정)
 ├── features/                         3명이 각자 맡은 폴더 안에서만 작업 (서로 파일 안 겹침)
-│   ├── object-detection/             담당: ML Kit
-│   │   ├── CameraView.tsx            카메라 화면 보여주기 + 프레임 캡처
+│   ├── object-detection/             담당: ML Kit (✅ 대분류 + 사각형 표시까지 구현됨)
+│   │   ├── CameraView.tsx            카메라 미리보기 + 촬영 버튼, 권한 요청 처리
 │   │   ├── BoundingBoxOverlay.tsx    감지된 물체 위에 사각형 그리기 + 탭했을 때 이벤트 전달
-│   │   ├── useObjectDetection.ts     카메라 프레임 → ML Kit 감지 결과를 돌려주는 훅
-│   │   ├── mlkit.ts                  ML Kit 라이브러리 초기화 및 저수준 호출 래퍼
+│   │   ├── ObjectDetectionScreen.tsx 위 컴포넌트/훅을 조립하는 화면 (index.tsx가 이걸 렌더링)
+│   │   ├── ObjectDetectionProvider.tsx  ML Kit 모델을 앱 전체에 제공 (_layout.tsx에서 사용)
+│   │   ├── useObjectDetection.ts     사진 → ML Kit 감지 결과를 돌려주는 훅
+│   │   ├── mlkit.ts                  ML Kit 모델 설정 (기본 대분류 모델)
 │   │   ├── types.ts                  이 폴더 안에서만 쓰는 타입
-│   │   └── README.md                 역할 설명 + 다음 단계로 넘기는 값 정리
+│   │   └── README.md                 역할 설명 + 실행 방법(Expo Go 불가, dev build 필요) + 다음 단계로 넘기는 값 정리
 │   ├── vision-analysis/              담당: Gemini Vision
 │   │   ├── AnalysisPanel.tsx         상세 분석 결과를 보여주는 화면
 │   │   ├── useVisionAnalysis.ts      분석 요청 보내고 로딩/결과 상태 관리하는 훅
