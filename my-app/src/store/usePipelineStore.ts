@@ -1,1 +1,36 @@
-// 공용 — 감지된 객체 / 분석 결과 / 아이디어 목록 등 3단계 파이프라인의 전역 상태를 연결
+import { useSyncExternalStore } from "react";
+
+import type { DetectedObject } from "../shared/types/pipeline";
+
+type PipelineState = {
+    selectedObject: DetectedObject | null;
+};
+
+let state: PipelineState = {
+    selectedObject: null,
+};
+
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+}
+
+function getSnapshot() {
+    return state;
+}
+
+function setSelectedObject(selectedObject: DetectedObject | null) {
+    state = { ...state, selectedObject };
+    listeners.forEach((listener) => listener());
+}
+
+export function usePipelineStore() {
+    const currentState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+    return {
+        ...currentState,
+        setSelectedObject,
+    };
+}

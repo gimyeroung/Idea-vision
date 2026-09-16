@@ -1,3 +1,16 @@
+# Gemini API 설정
+
+1. Google AI Studio에서 Gemini API 키를 발급합니다.
+2. 프로젝트 루트(`my-app`)에 `.env` 파일을 만들고 아래 값을 입력합니다.
+
+```env
+EXPO_PUBLIC_GEMINI_API_KEY=발급받은_API_키
+```
+
+3. Expo 개발 서버를 다시 시작한 뒤 사진을 선택하면 Gemini Vision 분석이 실행됩니다.
+
+`EXPO_PUBLIC_` 환경변수는 앱 번들에 포함되므로 운영 서비스에서는 API 키를 서버에서 보관하고 프록시 API를 사용하는 것이 안전합니다.
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
