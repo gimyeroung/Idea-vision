@@ -3,10 +3,11 @@
 // "실시간처럼" 보이는 사각형 오버레이를 만든다. (완전한 프레임 단위 실시간은 아님 —
 // react-native-vision-camera의 프레임 프로세서를 쓰면 가능하지만 네이티브 모듈이 추가로 필요함)
 // 사각형을 탭하면 usePipelineStore에 DetectedObject를 채워 넣는다 — vision-analysis(Gemini
-// Vision) 담당은 이 값을 구독해서 분석을 시작하면 된다. (화면 전환/모달 UI는 vision-analysis 쪽에서 결정)
+// Vision) 담당은 이 값을 구독해서 분석을 시작하면 된다. (실제 분석 화면 표시는 src/app/index.tsx에서 함)
 
+import * as FileSystem from 'expo-file-system';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { usePipelineStore } from '@/store/usePipelineStore';
 
@@ -22,7 +23,7 @@ const CAPTURE_INTERVAL_MS = 1200;
 export function ObjectDetectionScreen() {
   const cameraRef = useRef<CameraViewHandle>(null);
   const { detectedObjects, error, detect } = useObjectDetection();
-  const { selectedObject, setSelectedObject } = usePipelineStore();
+  const { setSelectedObject } = usePipelineStore();
   const [lastPhoto, setLastPhoto] = useState<CapturedPhoto | null>(null);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
 
@@ -53,13 +54,16 @@ export function ObjectDetectionScreen() {
     setPreviewSize({ width, height });
   };
 
-  const handlePressObject = (object: DetectedRect) => {
+  const handlePressObject = async (object: DetectedRect) => {
     if (!lastPhoto) return;
+    // Gemini Vision에 바로 넘길 수 있게, 탭한 시점 사진을 base64로 읽어둔다.
+    const base64 = await new FileSystem.File(lastPhoto.uri).base64();
     setSelectedObject({
       id: object.id,
       label: object.label,
       confidence: object.confidence,
       imageUri: lastPhoto.uri,
+      base64,
       box: object.box,
     });
   };
@@ -86,18 +90,6 @@ export function ObjectDetectionScreen() {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
-      {/* vision-analysis(Gemini Vision) 화면이 아직 없어서 임시로 보여주는 확인용 배너.
-          그 화면이 만들어지면 이 배너 대신 그 화면으로 이동/표시하도록 바꾸면 된다. */}
-      {selectedObject && (
-        <View style={styles.selectedBanner}>
-          <Text style={styles.selectedText}>
-            vision-analysis로 전달됨: {selectedObject.label} ({Math.round(selectedObject.confidence * 100)}%)
-          </Text>
-          <Pressable onPress={() => setSelectedObject(null)}>
-            <Text style={styles.selectedClose}>닫기</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
@@ -119,26 +111,5 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ffffff',
     textAlign: 'center',
-  },
-  selectedBanner: {
-    position: 'absolute',
-    top: 48,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  selectedText: {
-    color: '#ffffff',
-    flexShrink: 1,
-  },
-  selectedClose: {
-    color: '#00E676',
-    fontWeight: '600',
   },
 });
