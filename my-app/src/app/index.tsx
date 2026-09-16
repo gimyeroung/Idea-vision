@@ -1,22 +1,15 @@
-import { useState } from "react";
-import {
-  Alert,
-  Image,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-} from "react-native";
-import * as ImagePicker from "expo-image-picker";
+import { useEffect } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { IdeaList } from "../features/idea-generation/IdeaList";
-import { useIdeaGeneration } from "../features/idea-generation/useIdeaGeneration";
-import { AnalysisPanel } from "../features/vision-analysis/AnalysisPanel";
-import { useVisionAnalysis } from "../features/vision-analysis/useVisionAnalysis";
+import { IdeaList } from "@/features/idea-generation/IdeaList";
+import { useIdeaGeneration } from "@/features/idea-generation/useIdeaGeneration";
+import { ObjectDetectionScreen } from "@/features/object-detection/ObjectDetectionScreen";
+import { AnalysisPanel } from "@/features/vision-analysis/AnalysisPanel";
+import { useVisionAnalysis } from "@/features/vision-analysis/useVisionAnalysis";
+import { usePipelineStore } from "@/store/usePipelineStore";
 
 export default function Index() {
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const { selectedObject, setSelectedObject } = usePipelineStore();
   const { result, isLoading, error, analyze } = useVisionAnalysis();
   const {
     ideas,
@@ -25,103 +18,80 @@ export default function Index() {
     generate,
   } = useIdeaGeneration();
 
-  const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("권한 필요", "사진을 선택하려면 사진 보관함 권한이 필요합니다.");
-      return;
-    }
+  useEffect(() => {
+    if (!selectedObject) return;
 
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.8,
-      base64: true,
+    let cancelled = false;
+
+    analyze({ base64: selectedObject.base64, mimeType: "image/jpeg" }).then((analysisResult) => {
+      if (!cancelled && analysisResult) {
+        generate(analysisResult.text);
+      }
     });
 
-    if (!picked.canceled) {
-      const asset = picked.assets[0];
-      setImageUri(asset.uri);
-      if (asset.base64) {
-        const analysisResult = await analyze({
-          base64: asset.base64,
-          mimeType: asset.mimeType ?? "image/jpeg",
-        });
-        if (analysisResult) {
-          await generate(analysisResult.text);
-        }
-      }
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+    // selectedObject가 바뀔 때만 새로 분석을 시작하면 된다 (analyze/generate는 안정적인 참조가 아님)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedObject]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Idea Vision</Text>
-        <Text style={styles.subtitle}>
-          사진을 분석하고, 바로 실행해볼 수 있는 아이디어를 추천받아보세요.
-        </Text>
+    <View style={styles.container}>
+      <ObjectDetectionScreen />
 
-        <Pressable
-          style={styles.pickButton}
-          onPress={pickImage}
-          disabled={isLoading || isGeneratingIdeas}
-        >
-          <Text style={styles.pickButtonText}>
-            {isLoading
-              ? "사진 분석 중..."
-              : isGeneratingIdeas
-                ? "아이디어 만드는 중..."
-                : "사진 선택하고 아이디어 받기"}
-          </Text>
-        </Pressable>
-
-        {imageUri ? <Image source={{ uri: imageUri }} style={styles.preview} /> : null}
-        <AnalysisPanel result={result} isLoading={isLoading} error={error} />
-        <IdeaList ideas={ideas} isLoading={isGeneratingIdeas} error={ideaError} />
-      </ScrollView>
-    </SafeAreaView>
+      {selectedObject && (
+        <View style={styles.resultsSheet}>
+          <View style={styles.resultsHeader}>
+            <Text style={styles.resultsTitle}>{selectedObject.label}</Text>
+            <Pressable onPress={() => setSelectedObject(null)}>
+              <Text style={styles.closeButton}>닫기</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.resultsContent}>
+            <AnalysisPanel result={result} isLoading={isLoading} error={error} />
+            <IdeaList ideas={ideas} isLoading={isGeneratingIdeas} error={ideaError} />
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f5f7ff",
-  },
   container: {
-    padding: 24,
-    backgroundColor: "#f6f3eb",
-    gap: 16,
-    flexGrow: 1,
-    justifyContent: "center",
+    flex: 1,
   },
-  title: {
+  resultsSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: "60%",
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  resultsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  resultsTitle: {
+    fontSize: 18,
     fontWeight: "700",
     color: "#173b3a",
-    fontSize: 34,
-    letterSpacing: 0,
   },
-  subtitle: {
-    fontSize: 16,
+  closeButton: {
     color: "#587271",
-    lineHeight: 23,
+    fontWeight: "600",
   },
-  pickButton: {
-    backgroundColor: "#e56b4d",
-    borderRadius: 12,
+  resultsContent: {
     padding: 16,
-    alignItems: "center",
-  },
-  pickButtonText: {
-    color: "#fffaf2",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  preview: {
-    width: "100%",
-    aspectRatio: 1.3,
-    borderRadius: 16,
-    backgroundColor: "#dce9e4",
+    paddingTop: 4,
+    gap: 16,
   },
 });
