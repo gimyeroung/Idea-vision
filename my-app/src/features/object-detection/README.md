@@ -8,7 +8,8 @@
 
 - 카메라를 계속 켜두고 자동으로 촬영→감지를 반복하며 사각형을 라이브로 표시 (완전한 프레임 단위 실시간은 아니고, 사진 캡처를 짧은 간격으로 반복하는 방식 — `ObjectDetectionScreen.tsx`의 `CAPTURE_INTERVAL_MS`로 간격 조절 가능)
   - 더 부드러운 진짜 실시간(프레임 단위)이 필요하면 `react-native-vision-camera` + frame processor로 바꿔야 하는데, 이건 새 네이티브 모듈이라 EAS 재빌드가 필요함. 지금 방식은 재빌드 없이 바로 테스트 가능해서 우선 이걸로 감
-- 사각형을 탭했을 때 vision-analysis로 값을 넘기는 부분은 **아직 연결 안 됨** (`BoundingBoxOverlay`의 `onPressObject`는 있지만 `ObjectDetectionScreen`에서 아직 사용하지 않음)
+- 사각형을 탭하면 `src/store/usePipelineStore.ts`의 `selectedObject`에 `DetectedObject` 값을 채워 넣음 — **여기까지가 object-detection 쪽 작업**. vision-analysis는 `usePipelineStore().selectedObject`를 구독해서 값이 생기면 분석을 시작하면 됨
+  - 지금은 화면 전환할 vision-analysis 화면이 없어서, 값이 잘 들어가는지 확인할 수 있게 `ObjectDetectionScreen.tsx`에 임시 확인용 배너("vision-analysis로 전달됨: ...")를 띄워둠. vision-analysis 화면이 생기면 이 배너는 지우고 그 화면으로 대체하면 됨
 - 커스텀 `.tflite` 모델 없이 ML Kit 기본 모델만 사용 — 더 세부적인 분류는 vision-analysis(Gemini Vision) 담당의 역할
 
 ## ⚠️ Expo Go에서 실행 불가
@@ -31,6 +32,10 @@ npx expo run:android   # 또는 npx expo run:ios (Mac 필요)
 - `useObjectDetection.ts` — 사진을 ML Kit에 넘기고 감지 결과를 받는 훅
 - `mlkit.ts` — ML Kit 모델 설정(대분류 기본 모델만 사용)
 - `types.ts` — 이 폴더 내부 전용 타입 (`DetectedRect`)
+
+관련 공용 파일:
+- `src/shared/types/pipeline.ts` — `DetectedObject` 타입 정의
+- `src/store/usePipelineStore.tsx` — `selectedObject` 상태 보관 (Provider는 `src/app/_layout.tsx`에 연결됨)
 
 ## 다음 단계로 넘기는 값 (출력 계약)
 

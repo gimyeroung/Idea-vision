@@ -9,6 +9,8 @@ export interface DetectedObject {
   confidence: number;
   /** 탭한 시점에 촬영된 원본 사진 (ML Kit이 감지에 사용한 사진과 동일한 파일) */
   imageUri: string;
+  /** imageUri와 같은 사진의 base64 인코딩. Gemini Vision API에 바로 넘길 때 씀 */
+  base64: string;
   /** 원본 사진 기준 픽셀 좌표. 이 영역만 잘라서 Gemini Vision에 보내고 싶으면 이 값으로 크롭하면 됨 */
   box: {
     x: number;
@@ -18,8 +20,5 @@ export interface DetectedObject {
   };
 }
 
-// TODO (vision-analysis 담당): Gemini Vision 분석이 끝난 뒤 idea-generation으로 넘길 값.
-// export interface VisionAnalysisResult { ... }
-
-// TODO (idea-generation 담당): LLM이 만든 아이디어 하나의 모양.
-// export interface Idea { ... }
+// vision-analysis 분석 결과 모양은 src/features/vision-analysis/types.ts의 VisionAnalysisResult 참고.
+// idea-generation 결과 모양은 src/features/idea-generation/types.ts의 Idea 참고.
